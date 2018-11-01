@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using System.Net;
 using System.Configuration;
+using System.Diagnostics;
 
 namespace keep_web_alive
 {
@@ -13,14 +14,45 @@ namespace keep_web_alive
     {
         static void Main(string[] args)
         {
+            bool eventLog = Convert.ToBoolean(ConfigurationManager.AppSettings["eventlog"]);
+            string urlstr = "";
+
             using (WebClient client = new WebClient())
             {
                 string urls = ConfigurationManager.AppSettings["urls"];
 
                 foreach (var url in urls.Split(','))
                 {
-                    string htmlCode = client.DownloadString("https://www.google.com");
-                    Console.WriteLine($"did - {url}");
+                    urlstr = url;
+
+                    try
+                    {
+                        string htmlCode = client.DownloadString(url);
+                        var msg = $"did - {url}";
+
+                        Console.WriteLine(msg);
+
+                        if (eventLog)
+                        {
+                            using (var evt = new EventLog("Application"))
+                            {
+                                evt.Source = "Application";
+                                evt.WriteEntry(msg, EventLogEntryType.Information, 10001);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var msg = $"failed - {url} - {ex.Message}";
+
+                        Console.WriteLine(msg);
+                        using (var evt = new EventLog("Application"))
+                        {
+                            evt.Source = "Application";
+                            evt.WriteEntry(msg, EventLogEntryType.Information, 10001);
+                        }
+                    }
+
                 }
             }
         }
